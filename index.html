@@ -1,0 +1,2084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIG Task Manager</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        /* General Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: lightblue; /* Changed background to solid light blue */
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            /* Removed max-width to allow the container to expand to browser width */
+            width: 100%; /* Ensure it takes full available width */
+            margin: 0 auto; /* Still centers if less than 100%, otherwise no effect */
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative; /* Needed for modal positioning if it's a child */
+            z-index: 1; /* Ensure container is below modal overlay */
+        }
+
+        .header {
+            background-color: #00498c; /* Changed header background color */
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        /* Action Buttons Container */
+        .action-buttons {
+            display: flex;
+            gap: 15px; /* Space between buttons */
+            margin-bottom: 20px;
+            flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+        }
+
+        /* Add Task Section Toggle Button */
+        .toggle-add-task-btn,
+        .export-import-btn {
+            background: linear-gradient(135deg, #27ae60, #229954); /* Green for Add New Task */
+            color: white;
+            border: none;
+            padding: 8px 16px; /* Made smaller */
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem; /* Made smaller */
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: block; /* Make it a block element to control spacing */
+            width: fit-content; /* Adjust width to content */
+        }
+        .toggle-add-task-btn:hover,
+        .export-import-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(39, 174, 96, 0.3);
+        }
+
+        /* Specific styles for Export/Import buttons if different colors are desired */
+        .export-import-btn.export {
+            background: linear-gradient(135deg, #3498db, #2980b9); /* Blue for Export */
+        }
+        .export-import-btn.export:hover {
+            box-shadow: 0 8px 18px rgba(52, 152, 219, 0.3);
+        }
+
+        .export-import-btn.import {
+            background: linear-gradient(135deg, #e67e22, #d35400); /* Orange for Import */
+        }
+        .export-import-btn.import:hover {
+            box-shadow: 0 8px 18px rgba(230, 126, 34, 0.3);
+        }
+
+        /* Main layout container for calendar/list (no longer directly flex with form) */
+        .main-display-area {
+            display: block; /* This div simply contains the calendar and list */
+        }
+
+        /* Modal Overlay Styles */
+        .modal-overlay {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5); /* Semi-transparent black overlay */
+            z-index: 1000; /* Ensure it's on top of everything */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            overflow-y: auto; /* Allow scrolling if content is too tall */
+            padding: 20px; /* Padding around the modal content */
+            box-sizing: border-box; /* Include padding in element's total width */
+        }
+
+        .modal-overlay.active {
+            display: flex; /* Show when active */
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+            position: relative; /* For close button absolute positioning */
+            max-width: 600px; /* Max width for the modal */
+            width: 95%; /* Responsive width */
+            max-height: 90vh; /* Max height to prevent overflow on small screens */
+            overflow-y: auto; /* Allow internal scrolling if content overflows */
+            animation: fadeInScale 0.3s ease-out; /* Simple animation */
+        }
+
+        /* Add Task Section / Task Details Panel (now the content INSIDE the modal) */
+        .add-task-section {
+            background: none; /* Background is now handled by modal-content */
+            border: none; /* Border is now handled by modal-content */
+            box-shadow: none; /* Shadow is now handled by modal-content */
+            border-radius: 0; /* No radius here, handled by modal-content */
+            padding: 25px; /* Internal padding for the form */
+            position: static; /* No longer absolutely positioned itself */
+            overflow: visible; /* Ensure content is visible */
+        }
+
+        /* Close Button for Add/Edit Task Section (inside modal-content) */
+        .close-task-section-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #7f8c8d;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%; /* Make it circular */
+            transition: color 0.2s ease, background-color 0.2s ease;
+            z-index: 10; /* Ensure it's above form content */
+        }
+        .close-task-section-btn:hover {
+            color: #e74c3c;
+            background-color: #f0f0f0;
+        }
+
+        /* General form group spacing */
+        .form-group {
+            margin-bottom: 15px; /* Slightly reduced overall spacing */
+            display: flex; /* Default to flex for labels and inputs to be on the same line */
+            align-items: center; /* Vertically align items */
+            gap: 10px; /* Space between label and input */
+        }
+
+        /* Styles for labels that are inline with inputs/selects */
+        .form-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            flex-shrink: 0; /* Prevent labels from shrinking in flex containers */
+            padding-right: 10px; /* Space between label and input */
+            text-align: right; /* Align label text to the right */
+            white-space: nowrap; /* Prevent label text from wrapping */
+            margin-bottom: 0; /* Remove default block margin for labels in flex */
+        }
+
+        /* Specific styling for inputs/selects within inline-flex form groups */
+        .form-group input:not([type="datetime-local"]), /* Exclude datetime-local from flex-grow control */
+        .form-group select {
+            flex-grow: 1; /* Allow input/select to take available space */
+            width: auto; /* Override 100% width if set elsewhere */
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .form-group input[type="datetime-local"] {
+            flex-grow: 1; /* Also allow datetime-local to grow */
+            width: auto;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        /* Specific styles for the "Assigned To" form group to stack label and input/instruction */
+        .form-group.assigned-to-group { /* Added this new class to target the assigned to group */
+            flex-direction: column; /* Stack the label and content vertically */
+            align-items: flex-start; /* Align contents to the left */
+        }
+        /* Specific input styling within the assigned to group */
+        .form-group.assigned-to-group input {
+            width: 100%; /* Make input take full width within its parent */
+        }
+
+        /* The 'Assigned To' instruction text */
+        .small-instruction {
+            font-size: 0.7em; /* Very small font */
+            color: #777; /* Slightly darker grey for readability */
+            display: block; /* Ensure it's on its own line below the label/input */
+            margin-top: 4px; /* Small space after input */
+            margin-bottom: 0; /* No bottom margin, handled by parent form-group */
+            line-height: 1.2;
+            text-align: left; /* Align instruction text to the left */
+            width: 100%; /* Take full width */
+        }
+        
+        /* Specific styles for the Description form group (stacked label and textarea) */
+        .form-group-description {
+            display: block; /* Override flex to stack label and textarea */
+        }
+        .form-group-description label {
+            display: block; /* Ensure label is block */
+            margin-bottom: 8px; /* Space between label and textarea */
+            text-align: left; /* Align label left for description */
+            padding-right: 0;
+            white-space: normal;
+        }
+        .form-group-description textarea {
+            width: 100%; /* Ensure textarea takes full width */
+            height: 80px;
+            resize: vertical;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+        }
+
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 10px 20px rgba(231, 76, 60, 0.3);
+        }
+
+        /* Smaller buttons for Add/Edit Task Form */
+        /* These styles now apply to buttons INSIDE the modal */
+        .add-task-section .btn,
+        .add-task-section .btn-danger,
+        .add-task-section .btn-secondary {
+            padding: 6px 12px; /* Smaller padding */
+            font-size: 12px;   /* Smaller font */
+            border-radius: 15px; /* Consistent with small buttons */
+        }
+        .add-task-section .btn-danger {
+            margin-left: 10px; /* Keep original margin for consistency */
+        }
+        .add-task-section .btn-secondary {
+            margin-left: 10px; /* Keep original margin for consistency */
+        }
+
+
+        /* Smaller buttons for Filter Controls (Removed filter button, but keeping class for clear) */
+        .filter-controls .btn,
+        .filter-controls .btn-secondary {
+            padding: 6px 12px; /* Smaller padding */
+            font-size: 12px;   /* Smaller font */
+            border-radius: 15px; /* Consistent with small buttons */
+        }
+
+        /* Controls Sections (Sort & Filter) */
+        .sort-controls, .filter-controls {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .sort-controls label, .filter-controls label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .mandatory-asterisk {
+            color: red;
+            margin-left: 4px;
+            font-weight: normal;
+        }
+
+        .sort-controls select, .filter-controls select, .filter-controls input[type="text"], .filter-controls input[type="datetime-local"] {
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            min-width: 150px;
+        }
+        
+        .filter-controls input[type="text"], .filter-controls input[type="datetime-local"] {
+            flex-grow: 1; /* Allow filter input to grow */
+        }
+        
+        #personFilterSelect, #statusFilterSelect, #typeFilterSelect {
+            display: none; /* Hidden by default for filter dropdowns */
+        }
+
+        /* Tasks List Section */
+        .tasks-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            font-weight: 300;
+        }
+
+        .task-item {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #3498db;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            animation: slideIn 0.5s ease;
+        }
+
+        .task-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Task status specific border colors - These are for the border, background will be dynamic */
+        .task-item[data-status="Completed"] { border-left-color: #27ae60; }
+        .task-item[data-status="In progress"] { border-left-color: #3498db; }
+        .task-item[data-status="Under review"] { border-left-color: #f39c12; }
+        .task-item[data-status="Other"] { border-left-color: #95a5a6; } /* Adjusted for 'Other' status */
+
+
+        .task-item.overdue {
+            border-left-color: #e74c3c; /* Overrides status color if overdue */
+        }
+
+        .task-item.due-soon {
+            border-left-color: #f39c12; /* Overrides status color if due soon */
+        }
+
+        .task-header {
+            display: flex;
+            flex-direction: column; /* Stack header elements */
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .task-title-and-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%; /* Take full width of header */
+            margin-bottom: 5px; /* Space below title line */
+        }
+
+        .task-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2c3e50;
+            /* No margin-bottom here as it's handled by parent */
+        }
+
+        .task-header-actions {
+            display: flex;
+            gap: 10px; /* Space between icons */
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #555; /* Default icon color */
+            font-size: 1.1rem; /* Icon size */
+            cursor: pointer;
+            padding: 5px; /* Padding to make click target larger */
+            border-radius: 50%; /* Rounded button shape */
+            transition: color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .icon-btn:hover {
+            color: #3498db;
+            background-color: #eef;
+        }
+
+        .icon-btn.delete-icon:hover {
+            color: #e74c3c;
+        }
+
+        .task-meta-line {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 15px; /* Space between meta items */
+            font-size: 0.9rem; /* Consistent font size for all meta info */
+            color: #34495e;
+            font-weight: normal; /* Labels are not bold */
+            margin-bottom: 5px; /* Space below this line */
+        }
+
+        .task-meta-line strong {
+            color: #2c3e50;
+            font-weight: 600; /* Values are bold */
+        }
+        /* No individual margins for .task-status, .task-type, .task-assignee as they are handled by gap */
+
+
+        .task-deadline {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .task-deadline.overdue {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+
+        .task-deadline.due-soon {
+            color: #f39c12;
+            font-weight: 600;
+        }
+
+        .task-description {
+            color: #34495e;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        /* Remove task-actions as buttons are moved */
+        .task-actions {
+            display: none; 
+        }
+
+        .no-tasks {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        /* Calendar Styles */
+        .calendar-view {
+            display: block; /* Calendar always visible */
+            margin-bottom: 30px; /* Space between calendar and list/sort */
+            overflow-x: auto; /* Added for horizontal scrolling */
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+
+        .calendar-header h3 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-nav button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .calendar-nav button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(120px, 1fr)); /* Modified to ensure min width for each day */
+            gap: 1px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            min-width: 840px; /* 7 days * 120px min-width per day */
+        }
+
+        .calendar-day-header {
+            background: #34495e;
+            color: white;
+            padding: 15px 5px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .calendar-day {
+            background: white;
+            min-height: 100px;
+            padding: 8px;
+            position: relative;
+            transition: background-color 0.3s ease;
+            min-width: 120px; /* Ensure each day has a minimum width */
+        }
+
+        .calendar-day:hover {
+            background: #f8f9fa;
+        }
+
+        .calendar-day.other-month {
+            background: #f8f9fa;
+            color: #bdc3c7;
+        }
+
+        .calendar-day.today {
+            background: linear-gradient(135deg, #e8f8f5, #d5eddf);
+            border: 2px solid #27ae60;
+        }
+
+        /* New style for days within a task's span (active only when a task is selected) */
+        .calendar-day.calendar-day-active-task-span {
+            background-color: #E0F2F7; /* Light cyan to indicate activity */
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05); /* Subtle inner border */
+        }
+        /* Ensure the "today" class still takes precedence for today's highlight */
+        .calendar-day.today.calendar-day-active-task-span {
+            background: linear-gradient(135deg, #e8f8f5, #d5eddf); /* Today's gradient */
+            border: 2px solid #27ae60;
+            box-shadow: none; /* Remove additional box shadow */
+        }
+
+        .calendar-day-number {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        .calendar-task {
+            /* Background will be dynamically set by JS */
+            color: black; /* Font color is black for legibility */
+            padding: 2px 6px;
+            margin: 2px 0;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            /* Default background, overridden by JS */
+            background-color: #f0f0f0; 
+        }
+
+        .calendar-task:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+        }
+
+        .calendar-task.overdue {
+            border: 1px solid #c0392b; /* Indicate overdue with border */
+        }
+
+        .calendar-task.due-soon {
+            border: 1px solid #e67e22; /* Indicate due soon with border */
+        }
+
+        /* Color Legend Styles */
+        .color-legend {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px 20px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #34495e;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color-box {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Responsive Design */
+        /* Removed form-row grid as date fields will now stack */
+        /* .form-row { ... } */
+        /* .form-row .form-group { ... } */
+
+        @media (max-width: 768px) {
+            /* Stack labels and inputs vertically on small screens */
+            .form-group:not(.assigned-to-group) { /* Apply to all except assigned-to-group */
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px; /* Smaller gap when stacked */
+            }
+            .form-group label {
+                text-align: left; /* Labels align left when stacked */
+                padding-right: 0;
+                min-width: auto; /* Remove min-width on small screens */
+            }
+            
+            /* For small screens, modal takes full width */
+            .modal-content {
+                width: 95%; /* Adjust width for small screens */
+                padding: 15px; /* Slightly less padding on small screens */
+            }
+            .add-task-section {
+                padding: 15px; /* Match modal padding */
+            }
+
+            .action-buttons {
+                flex-direction: column; /* Stack buttons vertically on small screens */
+                gap: 10px; /* Reduce gap when stacked */
+            }
+
+            .toggle-add-task-btn,
+            .export-import-btn {
+                width: 100%; /* Make buttons full width */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BIG Task Manager</h1>
+            <p>Building Informatics Group - Stay organized and never miss a deadline</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Action Buttons Container -->
+            <div class="action-buttons">
+                <button type="button" class="toggle-add-task-btn" id="toggleAddTaskFormBtn">Add New Task</button>
+                <button type="button" class="export-import-btn export" id="exportTasksBtn">Export Tasks</button>
+                <button type="button" class="export-import-btn import" id="importTasksBtn">Import Tasks</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;">
+            </div>
+
+            <div class="main-display-area" id="mainDisplayArea">
+                <div class="calendar-and-list-area">
+                    <!-- Filter Controls -->
+                    <div class="filter-controls">
+                        <label for="filterBy">Filter by:</label>
+                        <select id="filterBy">
+                            <option value="person">Assigned Person</option>
+                            <option value="status">Status</option>
+                            <option value="type">Task Type</option>
+                        </select>
+                        <input type="text" id="filterTerm" placeholder="Enter filter term...">
+                        <select id="personFilterSelect"></select>
+                        <select id="statusFilterSelect"></select>
+                        <select id="typeFilterSelect"></select>
+                        <button type="button" class="btn btn-secondary" id="clearFilterBtn">Clear Filter</button>
+                        
+                        <!-- Color by control -->
+                        <label for="colorBy" style="margin-left: auto;">Color by:</label>
+                        <select id="colorBy">
+                            <option value="status">Status</option>
+                            <option value="person">Person</option>
+                            <option value="type">Task Type</option>
+                        </select>
+                    </div>
+
+                    <!-- Calendar View (always visible) -->
+                    <div id="calendarView" class="calendar-view">
+                        <div class="calendar-header">
+                            <h3 id="calendarTitle">June 2025</h3>
+                            <div class="calendar-nav">
+                                <button id="prevMonth">← Previous</button>
+                                <button id="todayBtn">Today</button>
+                                <button id="nextMonth">Next →</button>
+                            </div>
+                        </div>
+                        <div class="calendar-grid" id="calendarGrid">
+                            <!-- Calendar will be generated here -->
+                        </div>
+                        <div class="color-legend" id="colorLegend">
+                            <!-- Color legend will be generated here -->
+                        </div>
+                    </div>
+
+                    <div id="listView" class="list-view active">
+                        <h2>Tasks & Deadlines</h2>
+                        <!-- Sort Controls (moved after h2 title) -->
+                        <div class="sort-controls">
+                            <label for="sortBy">Sort by:</label>
+                            <select id="sortBy">
+                                <option value="deadline" selected>Deadline</option>
+                                <option value="title">Task Title</option>
+                                <option value="assignee">Assigned Person</option>
+                                <option value="status">Status</option>
+                                <option value="type">Task Type</option>
+                            </select>
+                            <label for="sortOrder">Order:</label>
+                            <select id="sortOrder">
+                                <option value="asc">Ascending</option>
+                                <option value="desc" selected>Descending</option>
+                            </select>
+                        </div>
+                        <div id="tasksList">
+                            <div class="no-tasks">
+                                No tasks yet. Add your first task above!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Overlay for Add/Edit Task Form -->
+    <div class="modal-overlay" id="taskModalOverlay">
+        <div class="modal-content">
+            <div class="add-task-section" id="addTaskSection">
+                <!-- Title and Close button container -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 id="taskFormTitle" style="color: #2c3e50; font-weight: 300; margin: 0;">Add New Task</h2>
+                    <button type="button" class="close-task-section-btn" id="closeAddTaskFormBtn" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="taskForm">
+                    <div class="form-group">
+                        <label for="taskType">Task Type <span class="mandatory-asterisk">*</span></label>
+                        <select id="taskType" required>
+                            <option value="System Development">System Development</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Journal Paper">Journal Paper</option>
+                            <option value="Conference Paper">Conference Paper</option>
+                            <option value="Report/Presentation">Report/Presentation</option>
+                            <option value="Proposal">Proposal</option>
+                            <option value="Administrative">Administrative</option>
+                            <option value="Vacation">Vacation</option>
+                            <option value="Business Trip">Business Trip</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskTitle">Task Title <span class="mandatory-asterisk">*</span></label>
+                        <input type="text" id="taskTitle" placeholder="Enter task title..." required>
+                    </div>
+                    <div class="form-group assigned-to-group"> <!-- Added assigned-to-group class -->
+                        <label for="taskAssignee">Assigned To: <span class="mandatory-asterisk">*</span></label>
+                        <input type="text" id="taskAssignee" placeholder="e.g., John Doe, Jane Smith" required>
+                        <span class="small-instruction">Use a comma or a semicolon as a separator between persons.</span>
+                    </div>
+                    <!-- Start Date and Deadline now stack vertically -->
+                    <div class="form-group">
+                        <label for="taskStartDate">Start Date (Optional)</label>
+                        <input type="datetime-local" id="taskStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="taskDeadline">Deadline <span class="mandatory-asterisk">*</span></label>
+                        <input type="datetime-local" id="taskDeadline" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskStatus">Status <span class="mandatory-asterisk">*</span></label>
+                        <select id="taskStatus">
+                            <option value="In progress">In progress</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Under review">Under review</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-description"> <!-- Added class for description group -->
+                        <label for="taskDescription">Description (Optional)</label>
+                        <textarea id="taskDescription" placeholder="Add task description..."></textarea>
+                    </div>
+                    <button type="submit" class="btn" id="submitBtn">Add Task</button>
+                    <button type="button" class="btn btn-danger" id="deleteBtn" style="display: none; margin-left: 10px;">Delete</button>
+                    <button type="button" class="add-task-section btn-secondary" id="cancelBtn" style="margin-left: 10px;">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+        let editingTaskId = null;
+        let currentDate = new Date(); // Used for calendar navigation
+        let currentFilterTerm = '';
+        let currentFilterBy = 'person'; // Changed default filter to person
+        let currentColorBy = 'status'; // Default color-coding
+        let selectedTaskId = null; // New: To track the currently selected task for calendar highlighting
+
+        // Updated TASK_STATUS_OPTIONS: removed 'On hold' and 'Canceled/Dropped', added 'Other'
+        const TASK_STATUS_OPTIONS = ['In progress', 'Completed', 'Under review', 'Other'];
+        // Updated TASK_TYPE_OPTIONS: ensures 'Other' is always last
+        const TASK_TYPE_OPTIONS = ['System Development', 'Meeting', 'Journal Paper', 'Conference Paper', 'Report/Presentation', 'Proposal', 'Administrative', 'Vacation', 'Business Trip', 'Other'];
+
+        // Define specific colors for statuses
+        const STATUS_COLORS = {
+            'In progress_PreDeadline': '#FFD700', // Gold/Yellow (before deadline)
+            'In progress_Overdue': '#FF6347',    // Tomato/Red (after deadline)
+            'Completed': '#90EE90',              // LightGreen (adjusted for lightness)
+            'Under review': '#ADD8E6',           // LightBlue (adjusted for lightness)
+            'Other': '#B0B0B0'                   // LightGray for 'Other' status
+        };
+
+        // Foundry Color Palette (lighter shades) - This palette will be used consistently for task types
+        const COLOR_PALETTE = [
+            '#D3D3D3', // Light Gray
+            '#B0C4DE', // Light Steel Blue
+            '#DDA0DD', // Light Plum/Thistle
+            '#C2E5D9', // Light Aqua
+            '#F5DEB3', // Wheat (light orange/brown)
+            '#FFDAB9', // Peach Puff
+            '#F0F8FF', // Alice Blue
+            '#FAFAD2', // Light Goldenrod Yellow
+            '#AFEEEE', // Pale Turquoise
+            '#E6E6FA', // Lavender
+            '#FFEFD5', // PapayaWhip (for new types)
+            '#F0F0F0'  // Even lighter grey for safety
+        ];
+        let typeColorMap = {}; // Map to store assigned colors for task types
+        let personColorMap = {}; // Map to store assigned colors for persons
+        let colorPaletteIndex = 0; // To cycle through COLOR_PALETTE for consistent colors
+
+        // Initialize the app when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTasks(); // Load tasks from local storage
+            
+            // Set default values and populate dropdowns (these must exist before setupEventListeners)
+            setDefaultStartDate(); 
+            populateStatusSelect();
+            populateTypeSelect();
+
+            // Initialize typeColorMap with consistent colors based on TASK_TYPE_OPTIONS order
+            TASK_TYPE_OPTIONS.forEach((type, index) => {
+                typeColorMap[type] = COLOR_PALETTE[index % COLOR_PALETTE.length];
+            });
+            
+            // Set minimum date for the deadline input to prevent past deadlines
+            const now = new Date();
+            const minDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            const taskDeadlineInput = document.getElementById('taskDeadline');
+            if (taskDeadlineInput) { 
+                taskDeadlineInput.min = minDate;
+            } else {
+                console.error("Error: Element with ID 'taskDeadline' not found.");
+            }
+
+            // Populate filter dropdowns and set default filter
+            populatePersonFilterSelect();
+            populateStatusSelectForFilter();
+            populateTypeSelectForFilter();
+
+            const filterBySelect = document.getElementById('filterBy');
+            if (filterBySelect) {
+                filterBySelect.value = currentFilterBy;
+                handleFilterByChange(); 
+            } else {
+                console.error("Error: Element with ID 'filterBy' not found during initial setup.");
+            }
+            
+            const colorBySelect = document.getElementById('colorBy');
+            if (colorBySelect) {
+                colorBySelect.value = currentColorBy;
+            } else {
+                console.error("Error: Element with ID 'colorBy' not found.");
+            }
+            
+            renderAllViews(); 
+            setupEventListeners(); 
+        });
+
+        // Sets up all necessary event listeners for the interactive elements
+        function setupEventListeners() {
+            const toggleAddTaskFormBtn = document.getElementById('toggleAddTaskFormBtn');
+            if (toggleAddTaskFormBtn) {
+                toggleAddTaskFormBtn.addEventListener('click', () => showModalForNewTask());
+            } else {
+                console.error("Error: Element with ID 'toggleAddTaskFormBtn' not found during event listener setup.");
+            }
+
+            // New: Event listeners for import/export buttons
+            const exportTasksBtn = document.getElementById('exportTasksBtn');
+            if (exportTasksBtn) {
+                exportTasksBtn.addEventListener('click', exportTasks);
+            } else {
+                console.error("Error: Element with ID 'exportTasksBtn' not found during event listener setup.");
+            }
+
+            const importTasksBtn = document.getElementById('importTasksBtn');
+            const importFileInput = document.getElementById('importFile');
+            if (importTasksBtn && importFileInput) {
+                importTasksBtn.addEventListener('click', () => importFileInput.click()); // Trigger click on hidden input
+                importFileInput.addEventListener('change', importTasks); // Handle file selection
+            } else {
+                console.error("Error: Import buttons or input not found during event listener setup.");
+            }
+
+            const taskForm = document.getElementById('taskForm');
+            if (taskForm) {
+                taskForm.addEventListener('submit', handleFormSubmit);
+            } else {
+                console.error("Error: Element with ID 'taskForm' not found during event listener setup.");
+            }
+            
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteTask(editingTaskId));
+            } else {
+                console.error("Error: Element with ID 'deleteBtn' not found during event listener setup.");
+            }
+
+            const closeFormPanel = () => {
+                clearForm();
+                const taskModalOverlay = document.getElementById('taskModalOverlay');
+                if (taskModalOverlay) taskModalOverlay.classList.remove('active'); 
+            };
+
+            const cancelBtn = document.getElementById('cancelBtn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', closeFormPanel);
+            } else {
+                console.error("Error: Element with ID 'cancelBtn' not found during event listener setup.");
+            }
+            const closeAddTaskFormBtn = document.getElementById('closeAddTaskFormBtn');
+            if (closeAddTaskFormBtn) {
+                closeAddTaskFormBtn.addEventListener('click', closeFormPanel);
+            } else {
+                console.error("Error: Element with ID 'closeAddTaskFormBtn' not found during event listener setup.");
+            }
+
+            const sortBySelect = document.getElementById('sortBy');
+            if (sortBySelect) {
+                sortBySelect.addEventListener('change', renderTasksList); 
+            } else {
+                console.error("Error: Element with ID 'sortBy' not found during event listener setup.");
+            }
+            const sortOrderSelect = document.getElementById('sortOrder');
+            if (sortOrderSelect) {
+                sortOrderSelect.addEventListener('change', renderTasksList); 
+            } else {
+                console.error("Error: Element with ID 'sortOrder' not found during event listener setup.");
+            }
+            
+            const prevMonthBtn = document.getElementById('prevMonth');
+            if (prevMonthBtn) {
+                prevMonthBtn.addEventListener('click', () => navigateMonth(-1));
+            } else {
+                console.error("Error: Element with ID 'prevMonth' not found during event listener setup.");
+            }
+            const nextMonthBtn = document.getElementById('nextMonth');
+            if (nextMonthBtn) {
+                nextMonthBtn.addEventListener('click', () => navigateMonth(1));
+            } else {
+                console.error("Error: Element with ID 'nextMonth' not found during event listener setup.");
+            }
+            const todayBtn = document.getElementById('todayBtn');
+            if (todayBtn) {
+                todayBtn.addEventListener('click', goToToday);
+            } else {
+                console.error("Error: Element with ID 'todayBtn' not found during event listener setup.");
+            }
+
+            const filterBySelect = document.getElementById('filterBy');
+            if (filterBySelect) {
+                filterBySelect.addEventListener('change', handleFilterByChange);
+            } else {
+                console.error("Error: Element with ID 'filterBy' not found during event listener setup.");
+            }
+            
+            const personFilterSelect = document.getElementById('personFilterSelect');
+            if (personFilterSelect) {
+                personFilterSelect.addEventListener('change', function() {
+                    currentFilterTerm = this.value; 
+                    performFilter();
+                });
+            } else {
+                console.error("Error: Element with ID 'personFilterSelect' not found during event listener setup.");
+            }
+            
+            const statusFilterSelect = document.getElementById('statusFilterSelect');
+            if (statusFilterSelect) {
+                statusFilterSelect.addEventListener('change', function() {
+                    currentFilterTerm = this.value; 
+                    performFilter();
+                });
+            } else {
+                console.error("Error: Element with ID 'statusFilterSelect' not found during event listener setup.");
+            }
+
+            const typeFilterSelect = document.getElementById('typeFilterSelect');
+            if (typeFilterSelect) {
+                typeFilterSelect.addEventListener('change', function() {
+                    currentFilterTerm = this.value; 
+                    performFilter();
+                });
+            } else {
+                console.error("Error: Element with ID 'typeFilterSelect' not found during event listener setup.");
+            }
+
+            const clearFilterBtn = document.getElementById('clearFilterBtn');
+            if (clearFilterBtn) {
+                clearFilterBtn.addEventListener('click', clearFilter);
+            } else {
+                console.error("Error: Element with ID 'clearFilterBtn' not found during event listener setup.");
+            }
+
+            const colorBySelect = document.getElementById('colorBy');
+            if (colorBySelect) {
+                colorBySelect.addEventListener('change', function() {
+                    currentColorBy = this.value;
+                    renderAllViews(); 
+                });
+            } else {
+                console.error("Error: Element with ID 'colorBy' not found.");
+            }
+        }
+
+        // Show modal for new task
+        function showModalForNewTask() {
+            clearForm(); // Clear form for a new entry
+            const taskFormTitle = document.getElementById('taskFormTitle');
+            if (taskFormTitle) taskFormTitle.textContent = 'Add New Task';
+
+            const taskModalOverlay = document.getElementById('taskModalOverlay');
+            if (taskModalOverlay) taskModalOverlay.classList.add('active'); // Show the modal
+        }
+
+        // Sets the default value of the task start date input to the current date and time
+        function setDefaultStartDate() {
+            const now = new Date();
+            const offset = now.getTimezoneOffset(); 
+            const localNow = new Date(now.getTime() - (offset * 60 * 1000));
+            const taskStartDateInput = document.getElementById('taskStartDate');
+            if (taskStartDateInput) { 
+                taskStartDateInput.value = localNow.toISOString().slice(0, 16);
+            } else {
+                console.error("Error: Element with ID 'taskStartDate' not found.");
+            }
+        }
+
+        // Handles the submission of the task form (either adding a new task or updating an existing one)
+        function handleFormSubmit(e) {
+            e.preventDefault(); 
+            
+            const title = document.getElementById('taskTitle')?.value.trim();
+            const assigneeInput = document.getElementById('taskAssignee')?.value.trim();
+            const startDate = document.getElementById('taskStartDate')?.value;
+            const deadline = document.getElementById('taskDeadline')?.value;
+            const description = document.getElementById('taskDescription')?.value.trim();
+            const status = document.getElementById('taskStatus')?.value;
+            const type = document.getElementById('taskType')?.value;
+            
+            const assignees = assigneeInput
+                                ? assigneeInput.split(/[,;]/).map(name => name.trim()).filter(name => name)
+                                : [];
+
+            if (!title || assignees.length === 0 || !deadline || !type) {
+                // Using a custom modal/message box instead of alert()
+                showMessage('Please fill in all required fields: Task Title, Assigned To, Deadline, and Task Type.', 'error');
+                return;
+            }
+            
+            const finalStartDate = startDate || new Date().toISOString().slice(0, 16);
+            
+            if (new Date(finalStartDate) >= new Date(deadline)) {
+                // Using a custom modal/message box instead of alert()
+                showMessage('Deadline must be after the start date!', 'error');
+                return;
+            }
+            
+            if (editingTaskId) {
+                updateTask(editingTaskId, title, assignees, finalStartDate, deadline, description, status, type);
+            } else {
+                addTask(title, assignees, finalStartDate, deadline, description, status, type);
+            }
+            
+            clearForm();
+            const taskModalOverlay = document.getElementById('taskModalOverlay');
+            if (taskModalOverlay) taskModalOverlay.classList.remove('active'); 
+            renderAllViews();
+            populatePersonFilterSelect();
+        }
+
+        // Adds a new task to the tasks array
+        function addTask(title, assignees, startDate, deadline, description, status, type) {
+            const task = {
+                id: Date.now(),
+                title: title,
+                assignee: assignees,
+                startDate: startDate,
+                deadline: deadline,
+                description: description,
+                status: status,
+                type: type,
+                createdAt: new Date().toISOString()
+            };
+            
+            tasks.push(task);
+            saveTasks();
+        }
+
+        // Updates an existing task in the tasks array
+        function updateTask(id, title, assignees, startDate, deadline, description, status, type) {
+            const taskIndex = tasks.findIndex(task => task.id === id);
+            if (taskIndex !== -1) {
+                tasks[taskIndex] = {
+                    ...tasks[taskIndex],
+                    title: title,
+                    assignee: assignees,
+                    startDate: startDate,
+                    deadline: deadline,
+                    description: description,
+                    status: status,
+                    type: type
+                };
+                saveTasks();
+            }
+            editingTaskId = null;
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) submitBtn.textContent = 'Add Task';
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (deleteBtn) deleteBtn.style.display = 'none';
+        }
+
+        // Deletes a task from the tasks array
+        function deleteTask(id) {
+            // Using a custom modal/message box instead of confirm()
+            showConfirmation('Are you sure you want to delete this task?', () => {
+                tasks = tasks.filter(task => task.id !== id);
+                saveTasks();
+                selectedTaskId = null; 
+                renderAllViews();
+                populatePersonFilterSelect();
+                clearForm();
+                const taskModalOverlay = document.getElementById('taskModalOverlay');
+                if (taskModalOverlay) taskModalOverlay.classList.remove('active'); 
+            });
+        }
+
+        // Populates the form with task data for editing
+        function editTask(id) {
+            const task = tasks.find(task => task.id === id);
+            if (task) {
+                const taskType = document.getElementById('taskType');
+                if (taskType) taskType.value = task.type || 'Other';
+                
+                const taskTitle = document.getElementById('taskTitle');
+                if (taskTitle) taskTitle.value = task.title;
+                
+                const taskAssignee = document.getElementById('taskAssignee');
+                if (taskAssignee) taskAssignee.value = Array.isArray(task.assignee) ? task.assignee.join(', ') : task.assignee || '';
+                
+                const taskStartDate = document.getElementById('taskStartDate');
+                if (taskStartDate) taskStartDate.value = task.startDate || '';
+                
+                const taskDeadline = document.getElementById('taskDeadline');
+                if (taskDeadline) taskDeadline.value = task.deadline;
+                
+                const taskDescription = document.getElementById('taskDescription');
+                if (taskDescription) taskDescription.value = task.description || '';
+                
+                const taskStatus = document.getElementById('taskStatus');
+                if (taskStatus) taskStatus.value = task.status || 'In progress';
+                
+                editingTaskId = id;
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) submitBtn.textContent = 'Update';
+                const deleteBtn = document.getElementById('deleteBtn');
+                if (deleteBtn) deleteBtn.style.display = 'inline-block';
+                const taskFormTitle = document.getElementById('taskFormTitle');
+                if (taskFormTitle) taskFormTitle.textContent = 'Task Details';
+                
+                // selectedTaskId = id; // This is now handled by handleCalendarTaskClick
+                
+                const taskModalOverlay = document.getElementById('taskModalOverlay');
+                if (taskModalOverlay) taskModalOverlay.classList.add('active'); 
+                // renderCalendar(); // This is now handled by handleCalendarTaskClick (implicitly via selectedTaskId change)
+                
+                const addTaskSection = document.getElementById('addTaskSection');
+                if (addTaskSection) addTaskSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Clears the form fields and resets editing state
+        function clearForm() {
+            const taskForm = document.getElementById('taskForm');
+            if (taskForm) taskForm.reset();
+
+            setDefaultStartDate();
+            const taskStatus = document.getElementById('taskStatus');
+            if (taskStatus) taskStatus.value = 'In progress';
+            const taskType = document.getElementById('taskType');
+            if (taskType) taskType.value = 'System Development';
+            editingTaskId = null;
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) submitBtn.textContent = 'Add Task';
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (deleteBtn) deleteBtn.style.display = 'none';
+            const taskFormTitle = document.getElementById('taskFormTitle');
+            if (taskFormTitle) taskFormTitle.textContent = 'Add New Task';
+            selectedTaskId = null; 
+            renderCalendar(); 
+        }
+
+        // Function to handle single click on calendar task to highlight date range
+        function handleCalendarTaskClick(taskId) {
+            if (selectedTaskId === taskId) {
+                // If the same task is clicked again, deselect it
+                selectedTaskId = null;
+            } else {
+                selectedTaskId = taskId;
+            }
+            renderCalendar(); // Re-render to apply or remove highlight
+        }
+
+        // Function to handle double click on calendar task to open edit modal
+        function handleCalendarTaskDoubleClick(taskId, event) {
+            event.stopPropagation(); // Prevent the event from bubbling up to the calendar-day
+            editTask(taskId);
+        }
+
+        // Function to open Add Task form and pre-fill deadline with double-clicked date
+        function openAddTaskFormForDate(dateString) {
+            clearForm(); 
+            const taskFormTitle = document.getElementById('taskFormTitle');
+            if (taskFormTitle) taskFormTitle.textContent = 'Add New Task'; 
+            const taskDeadline = document.getElementById('taskDeadline');
+            if (taskDeadline) taskDeadline.value = dateString; 
+            
+            const taskModalOverlay = document.getElementById('taskModalOverlay');
+            if (taskModalOverlay) taskModalOverlay.classList.add('active'); 
+            
+            const addTaskSection = document.getElementById('addTaskSection');
+            if (addTaskSection) addTaskSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+
+        // Renders both the calendar and list views
+        function renderAllViews() {
+            renderCalendar();
+            renderTasksList();
+            renderColorLegend(); 
+        }
+
+        // Filters tasks based on current filter settings
+        function getFilteredTasks() {
+            let filteredTasks = tasks;
+            const now = new Date();
+
+            if (currentFilterTerm) {
+                const filterTermLower = currentFilterTerm.toLowerCase();
+                filteredTasks = filteredTasks.filter(task => {
+                    if (currentFilterBy === 'person') {
+                        return Array.isArray(task.assignee) && task.assignee.some(person => person.toLowerCase() === filterTermLower);
+                    } else if (currentFilterBy === 'status') {
+                        if (filterTermLower === 'in_progress_before_deadline') {
+                            return task.status && task.status.toLowerCase() === 'in progress' && new Date(task.deadline) >= now;
+                        } else if (filterTermLower === 'in_progress_overdue') {
+                            return task.status && task.status.toLowerCase() === 'in progress' && new Date(task.deadline) < now;
+                        } else if (filterTermLower === 'completed') {
+                            return task.status && task.status.toLowerCase() === 'completed';
+                        } else if (filterTermLower === 'under_review') {
+                            return task.status && task.status.toLowerCase() === 'under review';
+                        } else if (filterTermLower === 'other_status') {
+                            return task.status && task.status.toLowerCase() === 'other';
+                        }
+                        return false; 
+                    } else if (currentFilterBy === 'type') {
+                        return task.type && task.type.toLowerCase() === filterTermLower;
+                    }
+                    return false; 
+                });
+            }
+            return filteredTasks;
+        }
+
+        // Renders the list of tasks (applies sorting after filtering)
+        function renderTasksList() {
+            const tasksList = document.getElementById('tasksList');
+            if (!tasksList) {
+                console.error("Error: Element with ID 'tasksList' not found.");
+                return;
+            }
+            
+            let displayTasks = getFilteredTasks();
+            
+            const sortByElement = document.getElementById('sortBy');
+            const sortOrderElement = document.getElementById('sortOrder');
+
+            const sortBy = sortByElement ? sortByElement.value : 'deadline';
+            const sortOrder = sortOrderElement ? sortOrderElement.value : 'desc';
+            
+            displayTasks.sort((a, b) => {
+                let valueA, valueB;
+                
+                switch (sortBy) {
+                    case 'title':
+                        valueA = a.title.toLowerCase();
+                        valueB = b.title.toLowerCase();
+                        break;
+                    case 'assignee':
+                        valueA = Array.isArray(a.assignee) && a.assignee.length > 0 ? a.assignee[0].toLowerCase() : '';
+                        valueB = Array.isArray(b.assignee) && b.assignee.length > 0 ? b.assignee[0].toLowerCase() : '';
+                        break;
+                    case 'status':
+                        valueA = a.status.toLowerCase();
+                        valueB = b.status.toLowerCase();
+                        break;
+                    case 'type':
+                        valueA = a.type.toLowerCase();
+                        valueB = b.type.toLowerCase();
+                        break;
+                    case 'deadline':
+                    default:
+                        valueA = new Date(a.deadline);
+                        valueB = new Date(b.deadline);
+                        break;
+                }
+                
+                if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1;
+                if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            if (displayTasks.length === 0) {
+                tasksList.innerHTML = '<div class="no-tasks">No tasks match your criteria.</div>';
+                return;
+            }
+            
+            const tasksHTML = displayTasks.map(task => {
+                const deadlineDate = new Date(task.deadline);
+                const now = new Date();
+                const timeDiff = deadlineDate - now;
+                const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                
+                let statusClass = ''; 
+                let statusText = '';
+                
+                if (timeDiff < 0) {
+                    statusClass = 'overdue';
+                    statusText = 'Overdue';
+                } else if (daysDiff <= 3) {
+                    statusClass = 'due-soon';
+                    statusText = 'Due Soon';
+                }
+
+                const taskColor = getTaskColor(task); 
+                
+                const formattedDeadline = deadlineDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const startDate = new Date(task.startDate);
+                const formattedStartDate = startDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const displayAssignees = Array.isArray(task.assignee) ? task.assignee.map(name => escapeHtml(name)).join(', ') : escapeHtml(task.assignee);
+                
+                return `
+                    <div class="task-item ${statusClass}" data-status="${escapeHtml(task.status)}" style="background-color: ${taskColor};" onclick="editTask(${task.id})">
+                        <div class="task-header">
+                            <div class="task-title-and-actions">
+                                <div class="task-title">${escapeHtml(task.title)}</div>
+                                <div class="task-header-actions">
+                                    <button class="icon-btn edit-icon" onclick="editTask(${task.id})" title="Edit Task">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                    <button class="icon-btn delete-icon" onclick="deleteTask(${task.id})" title="Delete Task">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="task-meta-line">
+                                <span class="task-assignee" style="font-weight: normal;">👤 Assigned to: <strong>${displayAssignees}</strong></span>
+                                <span class="task-status" style="font-weight: normal;">Status: <strong>${escapeHtml(task.status)}</strong></span>
+                                <span class="task-type" style="font-weight: normal;">🗂️ Type: <strong>${escapeHtml(task.type)}</strong></span>
+                            </div>
+                            <div class="task-dates">
+                                ▶️ Start: ${formattedStartDate} <span style="font-size: 0.8em; opacity: 0.7;">&bullet;&bullet;&bullet;&bullet;</span> ⏰ Due: ${formattedDeadline} ${statusText ? `• <span class="${statusClass}">${statusText}</span>` : ''}
+                            </div>
+                        </div>
+                        ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            tasksList.innerHTML = tasksHTML;
+        }
+
+        // Navigates the calendar view by month
+        function navigateMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            renderCalendar();
+            renderColorLegend();
+        }
+
+        // Sets the calendar view to the current month and day
+        function goToToday() {
+            currentDate = new Date();
+            renderCalendar();
+            renderColorLegend();
+        }
+
+        // Renders the calendar view (uses only filtered tasks, no sorting)
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+            const calendarTitle = document.getElementById('calendarTitle');
+            if (calendarTitle) calendarTitle.textContent = `${monthNames[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1);
+            const startingDayOfWeek = firstDay.getDay(); 
+            
+            const calendarGrid = document.getElementById('calendarGrid');
+            if (!calendarGrid) {
+                console.error("Error: Element with ID 'calendarGrid' not found.");
+                return;
+            }
+            const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
+            let calendarHTML = '';
+            
+            dayHeaders.forEach(day => {
+                calendarHTML += `<div class="calendar-day-header">${day}</div>`;
+            });
+            
+            const startDateForGrid = new Date(firstDay);
+            startDateForGrid.setDate(firstDay.getDate() - startingDayOfWeek); 
+            
+            const today = new Date();
+            const currentMonth = month;
+            
+            const taskToHighlight = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null;
+
+            for (let i = 0; i < 42; i++) { 
+                const cellDate = new Date(startDateForGrid);
+                cellDate.setDate(startDateForGrid.getDate() + i);
+                
+                const isToday = cellDate.toDateString() === today.toDateString();
+                const isCurrentMonth = cellDate.getMonth() === currentMonth;
+                let dayClasses = ['calendar-day'];
+                
+                if (!isCurrentMonth) dayClasses.push('other-month');
+                if (isToday) dayClasses.push('today');
+
+                if (taskToHighlight) {
+                    const taskStartDate = new Date(taskToHighlight.startDate);
+                    const taskDeadlineDate = new Date(taskToHighlight.deadline);
+                    if (cellDate.setHours(0,0,0,0) >= taskStartDate.setHours(0,0,0,0) && 
+                        cellDate.setHours(0,0,0,0) <= taskDeadlineDate.setHours(0,0,0,0)) {
+                        dayClasses.push('calendar-day-active-task-span');
+                    }
+                }
+                
+                // Filter tasks to show those that span across this calendar day
+                const dayTasks = getFilteredTasks().filter(task => {
+                    const taskStartDate = new Date(task.startDate);
+                    const taskDeadlineDate = new Date(task.deadline);
+                    // Check if the cellDate is between or on the task's start and end dates (inclusive)
+                    return cellDate.setHours(0,0,0,0) >= taskStartDate.setHours(0,0,0,0) && 
+                           cellDate.setHours(0,0,0,0) <= taskDeadlineDate.setHours(0,0,0,0);
+                });
+                
+                let tasksHTML = '';
+                dayTasks.forEach(task => {
+                    const deadlineDate = new Date(task.deadline);
+                    const now = new Date();
+                    const timeDiff = deadlineDate - now;
+                    const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                    
+                    let taskClass = 'calendar-task'; 
+                    if (timeDiff < 0) {
+                        taskClass += ' overdue'; 
+                    } else if (daysDiff <= 3) {
+                        taskClass += ' due-soon'; 
+                    }
+
+                    const taskColor = getTaskColor(task); 
+                    
+                    tasksHTML += `<div class="${taskClass}" title="${escapeHtml(task.title)} - ${Array.isArray(task.assignee) ? task.assignee.join(', ') : escapeHtml(task.assignee)}" onclick="handleCalendarTaskClick(${task.id})" ondblclick="handleCalendarTaskDoubleClick(${task.id}, event)" style="background-color: ${taskColor}; color: black;">${escapeHtml(task.title)}</div>`;
+                });
+                
+                calendarHTML += `
+                    <div class="${dayClasses.join(' ')}" ondblclick="openAddTaskFormForDate('${cellDate.toISOString().slice(0, 16)}')">
+                        <div class="calendar-day-number">${cellDate.getDate()}</div>
+                        ${tasksHTML}
+                    </div>
+                `;
+            }
+            
+            calendarGrid.innerHTML = calendarHTML;
+        }
+
+        // Function to open Add Task form and pre-fill deadline with double-clicked date
+        function openAddTaskFormForDate(dateString) {
+            clearForm(); 
+            const taskFormTitle = document.getElementById('taskFormTitle');
+            if (taskFormTitle) taskFormTitle.textContent = 'Add New Task'; 
+            const taskDeadline = document.getElementById('taskDeadline');
+            if (taskDeadline) taskDeadline.value = dateString; 
+            
+            const taskModalOverlay = document.getElementById('taskModalOverlay');
+            if (taskModalOverlay) taskModalOverlay.classList.add('active'); 
+            
+            const addTaskSection = document.getElementById('addTaskSection');
+            if (addTaskSection) addTaskSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+
+        // Helper function to get color for a task based on currentColorBy
+        function getTaskColor(task) {
+            const now = new Date();
+            const deadlineDate = new Date(task.deadline);
+
+            if (currentColorBy === 'status') {
+                if (task.status === 'In progress') {
+                    return deadlineDate < now ? STATUS_COLORS['In progress_Overdue'] : STATUS_COLORS['In progress_PreDeadline'];
+                }
+                return STATUS_COLORS[task.status] || '#FFFFFF'; 
+            } else if (currentColorBy === 'person') {
+                const firstAssignee = Array.isArray(task.assignee) && task.assignee.length > 0 ? task.assignee[0] : 'Unassigned';
+                if (!personColorMap[firstAssignee]) {
+                    personColorMap[firstAssignee] = getRandomColor();
+                }
+                return personColorMap[firstAssignee];
+            } else if (currentColorBy === 'type') {
+                const taskType = task.type || 'Other';
+                if (!typeColorMap[taskType]) {
+                    typeColorMap[taskType] = getConsistentColor(); 
+                }
+                return typeColorMap[taskType]; 
+            }
+            return '#FFFFFF'; 
+        }
+
+        // Generates a random hex color (used for persons)
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 6) + 10]; 
+            }
+            return color;
+        }
+
+        // Cycles through a predefined palette for consistent coloring (used for types)
+        function getConsistentColor() {
+            const color = COLOR_PALETTE[colorPaletteIndex % COLOR_PALETTE.length];
+            colorPaletteIndex++;
+            return color;
+        }
+
+        // Renders the color legend at the bottom of the calendar
+        function renderColorLegend() {
+            const colorLegend = document.getElementById('colorLegend');
+            if (!colorLegend) {
+                console.error("Error: Element with ID 'colorLegend' not found.");
+                return;
+            }
+            let legendHTML = '';
+
+            if (currentColorBy === 'status') {
+                legendHTML += '<strong>Status Colors:</strong>';
+                legendHTML += `
+                    <div class="legend-item">
+                        <div class="legend-color-box" style="background-color: ${STATUS_COLORS['In progress_PreDeadline']};"></div>
+                        <span>In progress (Before deadline)</span>
+                    </div>
+                `;
+                 legendHTML += `
+                    <div class="legend-item">
+                        <div class="legend-color-box" style="background-color: ${STATUS_COLORS['In progress_Overdue']};"></div>
+                        <span>In progress (Overdue)</span>
+                    </div>
+                `;
+                TASK_STATUS_OPTIONS.filter(s => s !== 'In progress').forEach(status => {
+                    const displayStatus = status === 'Other' ? 'Other' : status; 
+                    legendHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color-box" style="background-color: ${STATUS_COLORS[status] || '#FFFFFF'};"></div>
+                            <span>${displayStatus}</span>
+                        </div>
+                    `;
+                });
+            } else if (currentColorBy === 'person') {
+                legendHTML += '<strong>Person Colors:</strong>';
+                const sortedPersons = Object.keys(personColorMap).sort();
+                sortedPersons.forEach(person => {
+                    legendHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color-box" style="background-color: ${personColorMap[person]};"></div>
+                            <span>${escapeHtml(person)}</span>
+                        </div>
+                    `;
+                });
+            } else if (currentColorBy === 'type') {
+                legendHTML += '<strong>Task Type Colors:</strong>';
+                TASK_TYPE_OPTIONS.forEach(type => {
+                    if (!typeColorMap[type]) {
+                        typeColorMap[type] = getConsistentColor(); 
+                    }
+                    legendHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color-box" style="background-color: ${typeColorMap[type]};"></div>
+                            <span>${escapeHtml(type)}</span>
+                        </div>
+                    `;
+                });
+            }
+            colorLegend.innerHTML = legendHTML;
+        }
+
+        // Helper function to escape HTML characters to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Filter Functionality
+        function handleFilterByChange() {
+            currentFilterBy = document.getElementById('filterBy')?.value;
+            const filterTermInput = document.getElementById('filterTerm');
+            const personFilterSelect = document.getElementById('personFilterSelect');
+            const statusFilterSelect = document.getElementById('statusFilterSelect');
+            const typeFilterSelect = document.getElementById('typeFilterSelect');
+
+            if (filterTermInput) filterTermInput.style.display = 'none';
+            if (personFilterSelect) personFilterSelect.style.display = 'none';
+            if (statusFilterSelect) statusFilterSelect.style.display = 'none';
+            if (typeFilterSelect) typeFilterSelect.style.display = 'none';
+
+            if (currentFilterBy === 'person') {
+                if (personFilterSelect) personFilterSelect.style.display = 'inline-block';
+            } else if (currentFilterBy === 'status') {
+                if (statusFilterSelect) statusFilterSelect.style.display = 'inline-block';
+            } else if (currentFilterBy === 'type') {
+                if (typeFilterSelect) typeFilterSelect.style.display = 'inline-block';
+            }
+            
+            if (filterTermInput) filterTermInput.value = '';
+            if (personFilterSelect) personFilterSelect.value = '';
+            if (statusFilterSelect) statusFilterSelect.value = '';
+            if (typeFilterSelect) typeFilterSelect.value = '';
+            currentFilterTerm = '';
+            renderAllViews();
+        }
+
+        // Populates the 'Assigned Person' filter dropdown with unique names from existing tasks
+        function populatePersonFilterSelect() {
+            const personFilterSelect = document.getElementById('personFilterSelect');
+            if (!personFilterSelect) {
+                console.error("Error: Element with ID 'personFilterSelect' not found in populatePersonFilterSelect.");
+                return;
+            }
+            personFilterSelect.innerHTML = '<option value="">All Persons</option>';
+
+            const uniqueAssignees = [...new Set(
+                                        tasks.flatMap(task => Array.isArray(task.assignee) ? task.assignee : [task.assignee])
+                                        .map(name => name.trim())
+                                        .filter(Boolean)
+                                    )].sort();
+            
+            uniqueAssignees.forEach(person => {
+                const option = document.createElement('option');
+                option.value = person;
+                option.textContent = person;
+                personFilterSelect.appendChild(option);
+            });
+        }
+
+        // Populates the status select dropdown in the Add Task form
+        function populateStatusSelect() {
+            const taskStatusSelect = document.getElementById('taskStatus');
+            if (!taskStatusSelect) {
+                console.error("Error: Element with ID 'taskStatus' not found in populateStatusSelect.");
+                return;
+            }
+            taskStatusSelect.innerHTML = '';
+
+            TASK_STATUS_OPTIONS.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status;
+                taskStatusSelect.appendChild(option);
+            });
+            taskStatusSelect.value = 'In progress';
+        }
+
+        // Populates the status select dropdown in the filter controls
+        function populateStatusSelectForFilter() {
+            const statusFilterSelect = document.getElementById('statusFilterSelect');
+            if (!statusFilterSelect) {
+                console.error("Error: Element with ID 'statusFilterSelect' not found in populateStatusSelectForFilter.");
+                return;
+            }
+            statusFilterSelect.innerHTML = '<option value="">All Statuses</option>';
+
+            let optionIPBD = document.createElement('option');
+            optionIPBD.value = 'in_progress_before_deadline';
+            optionIPBD.textContent = 'In progress (Before deadline)';
+            statusFilterSelect.appendChild(optionIPBD);
+
+            let optionIPO = document.createElement('option');
+            optionIPO.value = 'in_progress_overdue';
+            optionIPO.textContent = 'In progress (Overdue)';
+            statusFilterSelect.appendChild(optionIPO);
+
+            TASK_STATUS_OPTIONS.filter(status => status !== 'In progress').forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.toLowerCase().replace(' ', '_'); 
+                option.textContent = status;
+                statusFilterSelect.appendChild(option);
+            });
+        }
+
+        // Populates the task type select dropdown in the Add Task form
+        function populateTypeSelect() {
+            const taskTypeSelect = document.getElementById('taskType');
+            if (!taskTypeSelect) {
+                console.error("Error: Element with ID 'taskType' not found in populateTypeSelect.");
+                return;
+            }
+            taskTypeSelect.innerHTML = '';
+
+            TASK_TYPE_OPTIONS.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                taskTypeSelect.appendChild(option);
+            });
+            taskTypeSelect.value = 'System Development';
+        }
+
+        // Populates the task type select dropdown in the filter controls
+        function populateTypeSelectForFilter() {
+            const typeFilterSelect = document.getElementById('typeFilterSelect');
+            if (!typeFilterSelect) {
+                console.error("Error: Element with ID 'typeFilterSelect' not found in populateTypeSelectForFilter.");
+                return;
+            }
+            typeFilterSelect.innerHTML = '<option value="">All Types</option>';
+
+            TASK_TYPE_OPTIONS.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type.toLowerCase().replace(' ', '_'); 
+                option.textContent = type;
+                typeFilterSelect.appendChild(option);
+            });
+        }
+
+        // Initiates the filter operation based on the selected criteria and term
+        function performFilter() {
+            currentFilterBy = document.getElementById('filterBy')?.value;
+            if (currentFilterBy === 'person') {
+                currentFilterTerm = document.getElementById('personFilterSelect')?.value || '';
+            } else if (currentFilterBy === 'status') {
+                currentFilterTerm = document.getElementById('statusFilterSelect')?.value || '';
+            } else if (currentFilterBy === 'type') {
+                currentFilterTerm = document.getElementById('typeFilterSelect')?.value || '';
+            } else {
+                currentFilterTerm = ''; 
+            }
+            renderAllViews();
+        }
+
+        // Clears the current filter and resets the filter controls
+        function clearFilter() {
+            const filterTermInput = document.getElementById('filterTerm');
+            if (filterTermInput) filterTermInput.value = '';
+            
+            const personFilterSelect = document.getElementById('personFilterSelect');
+            if (personFilterSelect) personFilterSelect.value = '';
+
+            const statusFilterSelect = document.getElementById('statusFilterSelect');
+            if (statusFilterSelect) statusFilterSelect.value = '';
+
+            const typeFilterSelect = document.getElementById('typeFilterSelect');
+            if (typeFilterSelect) typeFilterSelect.value = '';
+
+            currentFilterTerm = '';
+            currentFilterBy = 'person'; 
+            const filterBySelect = document.getElementById('filterBy');
+            if (filterBySelect) filterBySelect.value = 'person';
+
+            if (filterTermInput) filterTermInput.style.display = 'none';
+            if (personFilterSelect) personFilterSelect.style.display = 'inline-block'; 
+            if (statusFilterSelect) statusFilterSelect.style.display = 'none';
+            if (typeFilterSelect) typeFilterSelect.style.display = 'none';
+            renderAllViews();
+        }
+
+        // Saves the current tasks array to local storage
+        function saveTasks() {
+            try {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                showMessage('Tasks saved successfully!', 'success');
+            } catch (e) {
+                console.error("Error saving tasks to local storage:", e);
+                showMessage('Error saving tasks. Local storage might be full.', 'error');
+            }
+        }
+
+        // Loads tasks from local storage when the application starts
+        function loadTasks() {
+            const storedTasks = localStorage.getItem('tasks');
+            if (storedTasks) {
+                try {
+                    tasks = JSON.parse(storedTasks);
+                    tasks.forEach(task => {
+                        // Ensure assignees are always an array
+                        if (typeof task.assignee === 'string') {
+                            task.assignee = task.assignee.split(/[,;]/).map(name => name.trim()).filter(Boolean);
+                        } else if (!Array.isArray(task.assignee)) {
+                            task.assignee = [];
+                        }
+                        // Ensure status and type have default values if missing
+                        if (!task.status) {
+                            task.status = 'In progress';
+                        }
+                        if (!task.type) {
+                            task.type = 'Other';
+                        }
+                        // Ensure task ID is a number for consistent handling
+                        if (typeof task.id === 'string') {
+                            task.id = parseInt(task.id, 10);
+                        }
+                    });
+                } catch (e) {
+                    console.error("Error parsing stored tasks:", e);
+                    tasks = []; // Reset tasks if stored data is corrupted
+                    showMessage('Corrupted task data found. Resetting tasks.', 'error');
+                }
+            } else {
+                tasks = []; // Initialize as empty array if no tasks are stored
+            }
+        }
+
+        // --- New Import/Export Functions ---
+
+        // Exports current tasks to a JSON file
+        function exportTasks() {
+            const dataStr = JSON.stringify(tasks, null, 2); // Pretty print JSON
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:.-]/g, '_').slice(0, 19); //
+            a.download = `tasks_export_${timestamp}.json`;
+            a.href = url;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a); // Clean up the element
+            URL.revokeObjectURL(url); // Free up memory
+            showMessage('Tasks exported successfully!', 'success');
+        }
+
+        // Imports tasks from a JSON file
+        function importTasks(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        // Basic validation for imported tasks
+                        const validatedTasks = importedData.map(task => {
+                            // Assign a new ID to avoid conflicts if IDs are not unique or are not numbers
+                            const newId = Date.now() + Math.random(); 
+                            return {
+                                id: typeof task.id === 'number' ? task.id : newId, 
+                                title: task.title || 'Untitled Task',
+                                assignee: typeof task.assignee === 'string' 
+                                            ? task.assignee.split(/[,;]/).map(name => name.trim()).filter(Boolean)
+                                            : (Array.isArray(task.assignee) ? task.assignee.map(name => name.trim()).filter(Boolean) : []),
+                                startDate: task.startDate || new Date().toISOString().slice(0, 16),
+                                deadline: task.deadline || new Date().toISOString().slice(0, 16),
+                                description: task.description || '',
+                                status: task.status || 'In progress',
+                                type: task.type || 'Other',
+                                createdAt: task.createdAt || new Date().toISOString()
+                            };
+                        });
+
+                        tasks = validatedTasks; // Overwrite existing tasks with imported ones
+                        saveTasks(); // Save the newly imported tasks
+                        renderAllViews();
+                        populatePersonFilterSelect();
+                        showMessage('Tasks imported successfully!', 'success');
+                    } else {
+                        showMessage('Invalid JSON format. Expected an array of tasks.', 'error');
+                    }
+                } catch (error) {
+                    console.error("Error importing file:", error);
+                    showMessage('Failed to import tasks. Invalid JSON file.', 'error');
+                }
+            };
+            reader.readAsText(file);
+            // Clear the file input value to allow importing the same file again
+            event.target.value = ''; 
+        }
+
+        // --- Custom Message Box and Confirmation Dialog Functions ---
+        // Basic message box (replaces alert)
+        function showMessage(message, type = 'info') {
+            let messageBox = document.getElementById('messageBox');
+            if (!messageBox) {
+                messageBox = document.createElement('div');
+                messageBox.id = 'messageBox';
+                Object.assign(messageBox.style, {
+                    position: 'fixed',
+                    top: '20px',
+                    right: '20px',
+                    padding: '15px 25px',
+                    borderRadius: '10px',
+                    boxShadow: '0 5px 15px rgba(0,0,0,0.2)',
+                    zIndex: '2000',
+                    color: 'white',
+                    fontFamily: 'sans-serif',
+                    fontSize: '1rem',
+                    display: 'none', // Hidden by default
+                    maxWidth: '300px',
+                    textAlign: 'center'
+                });
+                document.body.appendChild(messageBox);
+            }
+
+            if (type === 'success') {
+                messageBox.style.backgroundColor = '#28a745';
+            } else if (type === 'error') {
+                messageBox.style.backgroundColor = '#dc3545';
+            } else {
+                messageBox.style.backgroundColor = '#007bff';
+            }
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000); // Hide after 3 seconds
+        }
+
+        // Custom confirmation dialog (replaces confirm)
+        function showConfirmation(message, onConfirm) {
+            let confirmationModal = document.getElementById('confirmationModal');
+            if (!confirmationModal) {
+                confirmationModal = document.createElement('div');
+                confirmationModal.id = 'confirmationModal';
+                Object.assign(confirmationModal.style, {
+                    position: 'fixed',
+                    top: '0',
+                    left: '0',
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: '2000'
+                });
+                confirmationModal.innerHTML = `
+                    <div style="background-color: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.4); max-width: 400px; text-align: center;">
+                        <p style="margin-bottom: 20px; font-size: 1.1rem; color: #333;">${message}</p>
+                        <button id="confirmYes" class="btn" style="background: linear-gradient(135deg, #28a745, #218838); margin-right: 10px;">Yes</button>
+                        <button id="confirmNo" class="btn btn-danger" style="background: linear-gradient(135deg, #dc3545, #c82333);">No</button>
+                    </div>
+                `;
+                document.body.appendChild(confirmationModal);
+
+                document.getElementById('confirmYes').onclick = () => {
+                    onConfirm();
+                    confirmationModal.remove();
+                };
+                document.getElementById('confirmNo').onclick = () => {
+                    confirmationModal.remove();
+                };
+            }
+            confirmationModal.style.display = 'flex';
+        }
+
+    </script>
+</body>
+</html>
