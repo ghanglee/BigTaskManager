@@ -1,1 +1,2 @@
 # BigTaskManager
+The BIG Task Manager is a simple yet effective web-based application designed to help users organize and manage their tasks, deadlines, and project schedules within the Building Informatics Group (BIG) or any personal/team context. It provides both a calendar view for a visual overview of deadlines and a list view for detailed task management, complete with sorting, filtering, and data import/export capabilities.
